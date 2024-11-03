@@ -1,4 +1,0 @@
-repository "beatrandompeople@InVRseStudios@cloud"
-  path "/"
-    br "/main"
-    co "/main"
