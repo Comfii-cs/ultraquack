@@ -5,6 +5,11 @@ using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("Ground Check")]
+    public float checkRad;
+    public Transform checkPos;
+    public LayerMask layer;
+
     [Header("Player Inputs")]
     public Rigidbody rb;
     public Transform orientation;
@@ -21,7 +26,7 @@ public class PlayerController : MonoBehaviour
 
     [Header("Jump Inputs")]
     public float jumpBuffer;
-    public float jumpDelay;
+    public float jumpTime;
     public float jumpPower;
     public float coyoteTime;
 
@@ -34,9 +39,10 @@ public class PlayerController : MonoBehaviour
     // degub :D
     private bool dbgCursor;
 
-    private float delta;
-    private float buffer;
-    private float coyoteTimer;
+    public float delta;
+    public float buffer;
+    public float coyoteTimer;
+    public float timeSinceJump;
 
     private void Start()
     {
@@ -49,10 +55,13 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         delta = Time.deltaTime * Application.targetFrameRate;
+        timeSinceJump += Time.deltaTime;
 
         DebugDisplay();
 
         BadInput();
+
+        Qol();
 
         MovePlayer();
 
@@ -82,13 +91,48 @@ public class PlayerController : MonoBehaviour
 
         // Drag
 
+        Vector3 horizontalMove = new(rb.velocity.x, 0, rb.velocity.z);
+
         if (Mathf.Abs(moveInputVector.magnitude) < .1f || Mathf.Abs(rb.velocity.magnitude) > speedCap)
-            rb.AddForce(-rb.velocity * moveback * delta, fm);
+            rb.AddForce(-horizontalMove * moveback * delta, fm);
+
+        // Jump
+
+        if (coyoteTimer > 0f && buffer > 0f && timeSinceJump > jumpTime)
+        {
+            Jump();
+        }
+    }
+
+    // Quality of life. IE: Jump buffering, Coyote time, etc.
+    void Qol()
+    {
+        // Coyote Time
+
+        if (GroundCheck())
+            coyoteTimer = coyoteTime;
+        else
+            coyoteTimer -= Time.deltaTime;
+
+        // Jump Buffer
+
+        if (jumpBool)
+            buffer = jumpBuffer;
+        else
+            buffer -= Time.deltaTime;
     }
 
     void Jump()
     {
+        rb.velocity = (Vector3.up * jumpPower * delta) + rb.velocity;
 
+        timeSinceJump = 0;
+        buffer = 0;
+    }
+
+    bool GroundCheck()
+    {
+        return Physics.CheckSphere(checkPos.position, checkRad, layer, QueryTriggerInteraction.Ignore);
     }
 
     void TurnCamera()
@@ -99,6 +143,12 @@ public class PlayerController : MonoBehaviour
 
         // for player movement
         orientation.eulerAngles = new(0, playerCam.eulerAngles.y);
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = GroundCheck() ? Color.green : Color.red;
+        Gizmos.DrawWireSphere(checkPos.position, checkRad);
     }
 
     #region Debug UI
